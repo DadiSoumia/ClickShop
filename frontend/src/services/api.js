@@ -114,5 +114,6 @@ export const uploadCategoryImage = (file) => {
 export const fetchAdminOrders = () => api.get("/admin/orders");
 export const updateOrderStatus = (id, status) => api.patch(`/admin/orders/${id}/status`, { status });
 export const updateOrderDelivery = (id, data) => api.patch(`/admin/orders/${id}/delivery`, data);
+export const deleteAdminOrder = (id) => api.delete(`/admin/orders/${id}`);
 
 export default api;

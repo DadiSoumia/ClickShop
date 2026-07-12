@@ -4,6 +4,7 @@ import {
   getAdminOrderById,
   updateOrderStatus,
   updateOrderDelivery,
+  deleteOrder,
   getOrdersSummary,
 } from "../../controllers/admin/order.admin.controller.js";
 import { protect, authorize } from "../../middlewares/auth.middleware.js";
@@ -24,5 +25,6 @@ router.patch(
   updateOrderStatus
 );
 router.patch("/:id/delivery", updateOrderDelivery);
+router.delete("/:id", deleteOrder);
 
 export default router;

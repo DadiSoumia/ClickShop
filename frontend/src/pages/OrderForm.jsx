@@ -2,19 +2,21 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
 import { FiMinus, FiPlus } from "react-icons/fi";
 import BackButton from "../components/BackButton.jsx";
-import { fetchProductById, submitOrder } from "../services/api.js";
+import { fetchProductById, submitOrder, getImageUrl } from "../services/api.js";
 import { WILAYAS, COMMUNES_BY_WILAYA } from "../data/algeriaLocations.js";
 import { getDeliveryFee } from "../data/deliveryFees.js";
+import { useCart } from "../context/CartContext.jsx";
 
 const formatPrice = (value) => `${value.toLocaleString("fr-FR")} DA`;
 
 export default function OrderForm() {
-  const { id } = useParams();
+  const { id } = useParams(); // présent = achat direct d'un seul produit ; absent = checkout du panier
   const { state } = useLocation();
   const navigate = useNavigate();
+  const { cart, clearCart } = useCart();
 
-  const [product, setProduct] = useState(undefined);
-  const [quantity, setQuantity] = useState(state?.quantity || 1);
+  // "checkoutItems" unifie les deux flux en une seule liste : [{ productId, name, image, price, quantity }]
+  const [checkoutItems, setCheckoutItems] = useState(id ? undefined : cart);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -27,17 +29,72 @@ export default function OrderForm() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
+  // Achat direct : on charge le produit unique demandé
   useEffect(() => {
+    if (!id) return;
     fetchProductById(id)
-      .then((res) => setProduct(res.data.data))
-      .catch(() => setProduct(null));
+      .then((res) => {
+        const product = res.data.data;
+        setCheckoutItems([
+          {
+            productId: product._id,
+            name: product.name,
+            image: product.images?.[0] || "",
+            price: product.price,
+            stock: product.stock,
+            quantity: state?.quantity || 1,
+          },
+        ]);
+      })
+      .catch(() => setCheckoutItems(null));
   }, [id]);
 
-  if (product === undefined) {
+  // Checkout panier : le stock mis en cache dans le panier peut être périmé
+  // (un autre client a pu acheter entre-temps) → on revérifie le stock réel.
+  useEffect(() => {
+    if (id) return;
+    if (cart.length === 0) return;
+
+    Promise.all(
+      cart.map((item) =>
+        fetchProductById(item.productId)
+          .then((res) => res.data.data)
+          .catch(() => null)
+      )
+    ).then((products) => {
+      setCheckoutItems(
+        cart.map((item, i) => {
+          const product = products[i];
+          if (!product) return item; // produit introuvable : on garde tel quel, le serveur validera
+          return {
+            ...item,
+            price: product.price,
+            stock: product.stock,
+            quantity: Math.min(item.quantity, product.stock),
+          };
+        })
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Panier vide et pas d'achat direct → rien à commander
+  if (!id && cart.length === 0) {
+    return (
+      <div className="container-page py-16 sm:py-24 text-center">
+        <h1 className="font-display text-xl sm:text-2xl font-bold text-ink">Votre panier est vide</h1>
+        <Link to="/produits" className="btn-primary mt-6 inline-flex text-sm">
+          Voir les produits
+        </Link>
+      </div>
+    );
+  }
+
+  if (checkoutItems === undefined) {
     return <p className="container-page py-24 text-center text-ink/50">Chargement...</p>;
   }
 
-  if (!product) {
+  if (checkoutItems === null) {
     return (
       <div className="container-page py-24 text-center">
         <h1 className="font-display text-2xl font-bold text-ink">Produit introuvable</h1>
@@ -48,8 +105,18 @@ export default function OrderForm() {
     );
   }
 
+  const setItemQuantity = (productId, quantity) => {
+    setCheckoutItems((prev) =>
+      prev.map((item) =>
+        item.productId === productId
+          ? { ...item, quantity: Math.max(1, Math.min(quantity, item.stock || 99)) }
+          : item
+      )
+    );
+  };
+
   const deliveryFee = form.wilayaCode ? getDeliveryFee(form.wilayaCode, form.deliveryType) : null;
-  const subtotal = product.price * quantity;
+  const subtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const total = subtotal + (deliveryFee || 0);
 
   const communesDisponibles = form.wilayaCode
@@ -92,21 +159,26 @@ export default function OrderForm() {
         commune: form.commune,
         deliveryType: form.deliveryType,
         note: form.note || null,
-        productId: product._id,
-        quantity,
+        items: checkoutItems.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
       });
 
       const order = res.data.data;
+
+      // Achat panier → on vide le panier après succès. Achat direct → rien à vider.
+      if (!id) clearCart();
+
       navigate("/confirmation", {
         state: {
           orderNumber: order.orderNumber,
-          product,
-          quantity,
+          items: checkoutItems,
           total: order.total,
         },
       });
     } catch (err) {
-      setErrors({ submit: "Une erreur est survenue. Merci de réessayer." });
+      setErrors({ submit: err.response?.data?.message || "Une erreur est survenue. Merci de réessayer." });
       setSubmitting(false);
     }
   };
@@ -190,32 +262,6 @@ export default function OrderForm() {
             </select>
           </div>
 
-          {/* Quantité */}
-          <div>
-            <label className="text-sm font-semibold text-ink mb-2 block text-center">Quantité</label>
-            <div className="flex justify-center">
-              <div className="inline-flex items-center border border-border rounded-full">
-                <button
-                  type="button"
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="h-10 w-10 flex items-center justify-center"
-                  aria-label="Diminuer"
-                >
-                  <FiMinus size={14} />
-                </button>
-                <span className="w-10 text-center font-semibold">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={() => setQuantity((q) => Math.min(product.stock, q + 1))}
-                  className="h-10 w-10 flex items-center justify-center"
-                  aria-label="Augmenter"
-                >
-                  <FiPlus size={14} />
-                </button>
-              </div>
-            </div>
-          </div>
-
           <div>
             <label className="text-sm font-semibold text-ink mb-1.5 block">Remarque (optionnelle)</label>
             <textarea
@@ -234,20 +280,41 @@ export default function OrderForm() {
           </button>
         </div>
 
-        {/* Résumé */}
+        {/* Résumé — liste tous les articles (1 ou plusieurs) */}
         <aside className="h-fit rounded-2xl border border-border bg-surface p-6 order-1 lg:order-2">
           <h2 className="font-display text-lg font-semibold text-ink mb-4">Résumé de la commande</h2>
-          <div className="flex gap-3">
-            <img
-              src={product.images[0]}
-              alt={product.name}
-              className="h-16 w-16 rounded-lg object-cover"
-            />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-ink line-clamp-1">{product.name}</p>
-              <p className="text-xs text-ink/60 mt-0.5">Quantité : {quantity}</p>
-              <p className="text-sm font-semibold text-ink mt-1">{formatPrice(product.price)}</p>
-            </div>
+
+          <div className="space-y-3">
+            {checkoutItems.map((item) => (
+              <div key={item.productId} className="flex gap-3">
+                <img
+                  src={getImageUrl(item.image)}
+                  alt={item.name}
+                  className="h-16 w-16 rounded-lg object-cover shrink-0"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-ink line-clamp-1">{item.name}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setItemQuantity(item.productId, item.quantity - 1)}
+                      className="h-6 w-6 flex items-center justify-center rounded-full border border-border"
+                    >
+                      <FiMinus size={10} />
+                    </button>
+                    <span className="text-xs text-ink/60 w-4 text-center">{item.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => setItemQuantity(item.productId, item.quantity + 1)}
+                      className="h-6 w-6 flex items-center justify-center rounded-full border border-border"
+                    >
+                      <FiPlus size={10} />
+                    </button>
+                  </div>
+                  <p className="text-sm font-semibold text-ink mt-1">{formatPrice(item.price)}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
           <div className="border-t border-border mt-4 pt-4 space-y-2 text-sm">

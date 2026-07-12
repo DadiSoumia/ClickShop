@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { FiMinus, FiPlus } from "react-icons/fi";
+import { FiMinus, FiPlus, FiShoppingCart } from "react-icons/fi";
 import BackButton from "../components/BackButton.jsx";
 import Skeleton from "../components/Skeleton.jsx";
-import { fetchProductById } from "../services/api.js";
+import { fetchProductById, getImageUrl } from "../services/api.js";
+import { useCart } from "../context/CartContext.jsx";
 
 const formatPrice = (value) => `${value.toLocaleString("fr-FR")} DA`;
 
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { addToCart, removeFromCart, isInCart } = useCart();
   const [product, setProduct] = useState(undefined);
   const [quantity, setQuantity] = useState(1);
+  const [justAdded, setJustAdded] = useState(false);
 
   useEffect(() => {
     fetchProductById(id)
@@ -52,9 +55,20 @@ export default function ProductDetail() {
 
   const hasPromo = product.oldPrice && product.oldPrice > product.price;
   const outOfStock = product.stock <= 0;
+  const inCart = isInCart(product._id);
 
   const handleBuyNow = () => {
     navigate(`/commande/${product._id}`, { state: { quantity } });
+  };
+
+  const handleToggleCart = () => {
+    if (inCart) {
+      removeFromCart(product._id);
+      return;
+    }
+    addToCart(product, quantity);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1800);
   };
 
   return (
@@ -62,7 +76,7 @@ export default function ProductDetail() {
       <BackButton />
       <div className="grid md:grid-cols-2 gap-5 sm:gap-8 md:gap-10">
         <div className="aspect-square rounded-xl sm:rounded-2xl overflow-hidden border border-border">
-          <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" />
+          <img src={getImageUrl(product.images[0])} alt={product.name} className="h-full w-full object-cover" />
         </div>
 
         <div>
@@ -105,13 +119,25 @@ export default function ProductDetail() {
             </div>
           </div>
 
-          <button
-            onClick={handleBuyNow}
-            disabled={outOfStock}
-            className="btn-primary w-full sm:w-auto mt-6 sm:mt-8 !py-3 sm:!py-3.5 text-sm sm:text-base disabled:opacity-40 disabled:pointer-events-none"
-          >
-            Acheter maintenant
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
+            <button
+              onClick={handleToggleCart}
+              disabled={outOfStock && !inCart}
+              className={`inline-flex items-center justify-center gap-2 rounded-full !py-3 sm:!py-3.5 px-6 text-sm sm:text-base font-semibold disabled:opacity-40 disabled:pointer-events-none ${
+                inCart ? "border border-primary bg-primary/10 text-primary" : "border border-border text-ink hover:bg-surface"
+              }`}
+            >
+              <FiShoppingCart size={16} />
+              {justAdded ? "Ajouté ✓" : inCart ? "Retirer du panier" : "Ajouter au panier"}
+            </button>
+            <button
+              onClick={handleBuyNow}
+              disabled={outOfStock}
+              className="btn-primary !py-3 sm:!py-3.5 text-sm sm:text-base disabled:opacity-40 disabled:pointer-events-none"
+            >
+              Acheter maintenant
+            </button>
+          </div>
         </div>
       </div>
     </div>

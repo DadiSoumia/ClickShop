@@ -11,23 +11,39 @@ const generateOrderNumber = () => {
 
 export const createOrder = async (req, res, next) => {
   try {
-    const { fullName, phone, email, wilaya, wilayaCode, commune, deliveryType, note, productId, quantity } = req.body;
+    const { fullName, phone, email, wilaya, wilayaCode, commune, deliveryType, note, items } = req.body;
 
-    if (!fullName || !phone || !wilayaCode || !commune || !productId || !quantity) {
+    if (!fullName || !phone || !wilayaCode || !commune || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: "Informations manquantes pour la commande." });
     }
 
-    const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ message: "Produit introuvable." });
-    }
+    // Récupère tous les produits concernés en une seule requête
+    const productIds = items.map((i) => i.productId);
+    const products = await Product.find({ _id: { $in: productIds } });
 
-    if (product.stock < quantity) {
-      return res.status(400).json({ message: "Stock insuffisant pour ce produit." });
+    const orderItems = [];
+    let subtotal = 0;
+
+    for (const { productId, quantity } of items) {
+      const product = products.find((p) => p._id.toString() === productId);
+
+      if (!product) {
+        return res.status(404).json({ message: `Produit introuvable (${productId}).` });
+      }
+      if (product.stock < quantity) {
+        return res.status(400).json({ message: `Stock insuffisant pour "${product.name}".` });
+      }
+
+      orderItems.push({
+        product: product._id,
+        name: product.name,
+        quantity,
+        unitPrice: product.price,
+      });
+      subtotal += product.price * quantity;
     }
 
     const DELIVERY_FEE = getDeliveryFee(wilayaCode, deliveryType);
-    const subtotal = product.price * quantity;
     const total = subtotal + DELIVERY_FEE;
 
     const order = await Order.create({
@@ -37,21 +53,16 @@ export const createOrder = async (req, res, next) => {
       commune,
       deliveryType: deliveryType || "domicile",
       note: note || null,
-      items: [
-        {
-          product: product._id,
-          name: product.name,
-          quantity,
-          unitPrice: product.price,
-        },
-      ],
+      items: orderItems,
       deliveryFee: DELIVERY_FEE,
       subtotal,
       total,
     });
 
-    product.stock -= quantity;
-    await product.save();
+    // Décrémente le stock de chaque produit commandé
+    for (const { productId, quantity } of items) {
+      await Product.findByIdAndUpdate(productId, { $inc: { stock: -quantity } });
+    }
 
     res.status(201).json({ data: order });
   } catch (error) {
@@ -61,7 +72,9 @@ export const createOrder = async (req, res, next) => {
 
 export const getOrders = async (req, res, next) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
+    const orders = await Order.find()
+      .populate("items.product", "images")
+      .sort({ createdAt: -1 });
     res.json({ data: orders });
   } catch (error) {
     next(error);
@@ -70,7 +83,7 @@ export const getOrders = async (req, res, next) => {
 
 export const getOrderById = async (req, res, next) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate("items.product", "images");
     if (!order) {
       return res.status(404).json({ message: "Commande introuvable." });
     }

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { FiMenu, FiX, FiSearch, FiChevronDown, FiFacebook, FiInstagram } from "react-icons/fi";
+import { FiMenu, FiX, FiSearch, FiChevronDown, FiFacebook, FiInstagram, FiShoppingCart } from "react-icons/fi";
 import useCategories from "../hooks/useCategories.js";
 import useScrollSpy from "../hooks/useScrollSpy.js";
+import { useCart } from "../context/CartContext.jsx";
 
 const SOCIAL_LINKS = {
   facebook: "https://www.facebook.com/clickshopdz16",
@@ -11,6 +12,7 @@ const SOCIAL_LINKS = {
 
 export default function Navbar() {
   const { categories } = useCategories();
+  const { totalItems } = useCart();
   const [open, setOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -49,6 +51,22 @@ export default function Navbar() {
 
   const linkClass = (active) =>
     `text-sm font-semibold transition-colors ${active ? "text-primary" : "text-ink hover:text-primary"}`;
+
+  const CartButton = ({ size = 19, className = "" }) => (
+    <Link
+      to="/panier"
+      onClick={() => setOpen(false)}
+      className={`relative h-9 w-9 flex items-center justify-center rounded-full hover:bg-surface ${className}`}
+      aria-label="Panier"
+    >
+      <FiShoppingCart size={size} />
+      {totalItems > 0 && (
+        <span className="absolute -top-1 -right-1 h-4.5 min-w-[18px] px-1 flex items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold leading-none">
+          {totalItems > 9 ? "9+" : totalItems}
+        </span>
+      )}
+    </Link>
+  );
 
   return (
     <header
@@ -114,7 +132,7 @@ export default function Navbar() {
             </button>
           </form>
 
-          
+
           <button
             onClick={() => setSearchOpen((v) => !v)}
             className="md:hidden h-9 w-9 flex items-center justify-center rounded-full hover:bg-surface"
@@ -123,7 +141,9 @@ export default function Navbar() {
             <FiSearch size={19} />
           </button>
 
-    
+          {/* Icône panier — toujours visible, mobile et desktop */}
+          <CartButton />
+
           <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-border ml-1">
             <a href={SOCIAL_LINKS.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook"
               className="h-9 w-9 flex items-center justify-center rounded-full text-ink hover:bg-primary hover:text-white transition-colors">
@@ -135,7 +155,7 @@ export default function Navbar() {
             </a>
           </div>
 
-       
+
           <button
             onClick={() => setOpen((v) => !v)}
             className="lg:hidden h-9 w-9 flex items-center justify-center rounded-full hover:bg-surface"
@@ -146,7 +166,7 @@ export default function Navbar() {
         </div>
       </nav>
 
-      
+
       {searchOpen && (
         <div className="md:hidden border-t border-border bg-background px-4 py-3">
           <form onSubmit={handleSearch} className="flex gap-2">
@@ -165,7 +185,7 @@ export default function Navbar() {
         </div>
       )}
 
-      
+
       {open && (
         <div className="lg:hidden border-t border-border bg-background max-h-[calc(100vh-56px)] overflow-y-auto">
           <ul className="container-page py-3 flex flex-col gap-0.5">

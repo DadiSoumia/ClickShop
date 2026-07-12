@@ -7,7 +7,7 @@ export default function OrderConfirmation() {
 
   if (!state?.orderNumber) return <Navigate to="/" replace />;
 
-  const { orderNumber, product, quantity, total } = state;
+  const { orderNumber, items = [], total } = state;
 
   return (
     <div className="container-page py-16 md:py-24">
@@ -30,9 +30,15 @@ export default function OrderConfirmation() {
             <span className="font-display font-bold text-ink">{orderNumber}</span>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-border flex justify-between text-sm text-ink/70">
-            <span className="line-clamp-1 pr-3">{product.name} × {quantity}</span>
-            <span className="shrink-0">{formatPrice(product.price * quantity)}</span>
+          <div className="mt-4 pt-4 border-t border-border space-y-2">
+            {items.map((item) => (
+              <div key={item.productId} className="flex justify-between text-sm text-ink/70">
+                <span className="line-clamp-1 pr-3">
+                  {item.name} × {item.quantity}
+                </span>
+                <span className="shrink-0">{formatPrice(item.price * item.quantity)}</span>
+              </div>
+            ))}
           </div>
 
           <div className="mt-4 pt-4 border-t border-border flex justify-between font-bold text-ink">

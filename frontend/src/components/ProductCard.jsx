@@ -1,11 +1,25 @@
 import { Link } from "react-router-dom";
+import { FiShoppingCart } from "react-icons/fi";
 import { getImageUrl } from "../services/api.js";
+import { useCart } from "../context/CartContext.jsx";
 
 const formatPrice = (value) => `${value.toLocaleString("fr-FR")} DA`;
 
 export default function ProductCard({ product }) {
+  const { addToCart, removeFromCart, isInCart } = useCart();
   const hasPromo = product.oldPrice && product.oldPrice > product.price;
   const outOfStock = product.stock <= 0;
+  const inCart = isInCart(product._id);
+
+  const handleToggleCart = (e) => {
+    e.preventDefault();
+    if (inCart) {
+      removeFromCart(product._id);
+      return;
+    }
+    if (outOfStock) return;
+    addToCart(product, 1);
+  };
 
   return (
     <div className="group flex flex-col rounded-xl sm:rounded-2xl bg-white border border-border overflow-hidden">
@@ -45,12 +59,36 @@ export default function ProductCard({ product }) {
         </div>
 
         <div className="flex gap-1.5 sm:gap-2 mt-2 sm:mt-3">
-          <Link
-            to={`/produits/${product._id}`}
-            className="flex-1 text-center text-xs sm:text-sm font-semibold border border-border rounded-full py-1.5 sm:py-2 hover:bg-surface"
-          >
-            Détails
-          </Link>
+          <div className="relative group/cartbtn">
+            <button
+              onClick={handleToggleCart}
+              disabled={outOfStock && !inCart}
+              aria-label={inCart ? "Déjà dans le panier" : "Ajouter au panier"}
+              className={`h-8 w-8 sm:h-9 sm:w-9 shrink-0 flex items-center justify-center rounded-full border disabled:opacity-40 disabled:pointer-events-none ${
+                inCart ? "bg-primary/10 border-primary text-primary" : "border-border hover:bg-surface"
+              }`}
+            >
+              <FiShoppingCart size={14} className="sm:size-4" />
+            </button>
+
+            {/* Menu rapide au survol */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max min-w-[150px] flex-col rounded-lg border border-border bg-white shadow-lg py-1 z-20 hidden group-hover/cartbtn:flex">
+              <button
+                onClick={handleToggleCart}
+                disabled={outOfStock && !inCart}
+                className="px-3 py-2 text-left text-xs font-medium text-ink hover:bg-surface disabled:opacity-40 disabled:pointer-events-none"
+              >
+                {inCart ? "Retirer du panier" : "Ajouter au panier"}
+              </button>
+              <Link
+                to={`/produits/${product._id}`}
+                className="px-3 py-2 text-left text-xs font-medium text-ink hover:bg-surface"
+              >
+                Voir détails
+              </Link>
+            </div>
+          </div>
+
           <Link
             to={`/commande/${product._id}`}
             className={`flex-1 text-center text-xs sm:text-sm font-semibold rounded-full py-1.5 sm:py-2 text-white bg-primary hover:opacity-90 ${

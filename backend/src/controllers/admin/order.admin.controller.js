@@ -2,6 +2,7 @@ import Order from "../../models/Order.model.js";
 
 const VALID_STATUSES = ["en_attente", "confirmee", "livree", "retoure"];
 
+// GET /api/admin/orders?status=&search=&page=&limit=
 export const getAdminOrders = async (req, res, next) => {
   try {
     const { status, search, page = 1, limit = 20 } = req.query;
@@ -20,7 +21,11 @@ export const getAdminOrders = async (req, res, next) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     const [orders, total] = await Promise.all([
-      Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+      Order.find(filter)
+        .populate("items.product", "images")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit)),
       Order.countDocuments(filter),
     ]);
 
@@ -38,6 +43,7 @@ export const getAdminOrders = async (req, res, next) => {
   }
 };
 
+// GET /api/admin/orders/:id
 export const getAdminOrderById = async (req, res, next) => {
   try {
     const order = await Order.findById(req.params.id).populate("items.product", "name images");
@@ -50,6 +56,7 @@ export const getAdminOrderById = async (req, res, next) => {
   }
 };
 
+// PATCH /api/admin/orders/:id/status
 export const updateOrderStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
@@ -77,6 +84,7 @@ export const updateOrderStatus = async (req, res, next) => {
   }
 };
 
+// PATCH /api/admin/orders/:id/delivery — modifier les infos client/livraison
 export const updateOrderDelivery = async (req, res, next) => {
   try {
     const { fullName, phone, email, wilaya, commune, deliveryType, deliveryFee, note } = req.body;
@@ -105,7 +113,7 @@ export const updateOrderDelivery = async (req, res, next) => {
         return res.status(400).json({ success: false, message: "Frais de livraison invalide." });
       }
       order.deliveryFee = fee;
-      order.total = order.subtotal + fee; 
+      order.total = order.subtotal + fee; // recalcul automatique du total
     }
 
     await order.save();
@@ -115,12 +123,26 @@ export const updateOrderDelivery = async (req, res, next) => {
   }
 };
 
+// DELETE /api/admin/orders/:id
+export const deleteOrder = async (req, res, next) => {
+  try {
+    const order = await Order.findByIdAndDelete(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Commande introuvable" });
+    }
+    res.json({ success: true, message: "Commande supprimée avec succès" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/admin/orders/stats/summary — petit résumé utile pour le dashboard
 export const getOrdersSummary = async (req, res, next) => {
   try {
     const [counts, revenueAgg] = await Promise.all([
       Order.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
       Order.aggregate([
-        { $match: { status: { $ne: "annulee" } } },
+        { $match: { status: { $ne: "retoure" } } },
         { $group: { _id: null, total: { $sum: "$total" } } },
       ]),
     ]);

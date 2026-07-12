@@ -1,10 +1,12 @@
-import { FiTruck, FiShield, FiHeadphones } from "react-icons/fi";
+
+import { FiHeadphones, FiTruck, FiShield, FiDollarSign } from "react-icons/fi";
 import SectionHeader from "./SectionHeader.jsx";
+
 
 const points = [
   { icon: FiTruck, title: "Livraison rapide", text: "Expédition vers toutes les wilayas." },
   { icon: FiShield, title: "Achat sécurisé", text: "Vos informations sont protégées." },
-  { icon: FiHeadphones, title: "Support réactif", text: "Une équipe à votre écoute." },
+  { icon: FiDollarSign, title: "Paiement à la livraison", text: "Payez en main, une fois votre colis reçu." },
 ];
 
 export default function WhyUs() {

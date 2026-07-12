@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { FiEdit2, FiX } from "react-icons/fi";
-import { fetchAdminOrders, updateOrderStatus, updateOrderDelivery } from "../../services/api.js";
+import { FiEdit2, FiX, FiTrash2 } from "react-icons/fi";
+import { fetchAdminOrders, updateOrderStatus, updateOrderDelivery, deleteAdminOrder, getImageUrl } from "../../services/api.js";
 
 const formatPrice = (v) => `${v.toLocaleString("fr-FR")} DA`;
 
@@ -41,6 +41,23 @@ const StatusSelect = ({ order, onChange }) => (
       </option>
     ))}
   </select>
+);
+
+// Affiche la liste des produits commandés (photo + nom + quantité)
+const OrderItemsList = ({ items = [], className = "" }) => (
+  <ul className={`space-y-1.5 ${className}`}>
+    {items.map((item, i) => (
+      <li key={item.product?._id || item.product || i} className="flex items-center gap-2 min-w-0">
+        <img
+          src={getImageUrl(item.product?.images?.[0])}
+          alt={item.name}
+          className="h-7 w-7 rounded-md object-cover shrink-0 border border-border"
+        />
+        <span className="text-xs text-ink/60 truncate min-w-0">{item.name}</span>
+        <span className="text-xs text-ink/40 shrink-0">× {item.quantity}</span>
+      </li>
+    ))}
+  </ul>
 );
 
 export default function AdminOrders() {
@@ -114,6 +131,16 @@ export default function AdminOrders() {
     }
   };
 
+  const handleDelete = async (order) => {
+    if (!confirm(`Supprimer définitivement la commande ${order.orderNumber} ?`)) return;
+    try {
+      await deleteAdminOrder(order._id);
+      setOrders((prev) => prev.filter((o) => o._id !== order._id));
+    } catch {
+      alert("Erreur lors de la suppression.");
+    }
+  };
+
   return (
     <div>
       <h1 className="font-display text-xl sm:text-2xl font-bold text-ink mb-6">Commandes</h1>
@@ -122,7 +149,7 @@ export default function AdminOrders() {
         <p className="text-ink/50">Chargement...</p>
       ) : (
         <>
-        
+
           <div className="md:hidden space-y-3">
             {orders.map((order) => (
               <div key={order._id} className="bg-white border border-border rounded-2xl p-4">
@@ -133,14 +160,25 @@ export default function AdminOrders() {
                       {new Date(order.createdAt).toLocaleDateString("fr-FR")}
                     </p>
                   </div>
-                  <button
-                    onClick={() => openEditModal(order)}
-                    className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-surface text-ink/70 shrink-0"
-                    aria-label="Modifier la livraison"
-                  >
-                    <FiEdit2 size={15} />
-                  </button>
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      onClick={() => openEditModal(order)}
+                      className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-surface text-ink/70"
+                      aria-label="Modifier la livraison"
+                    >
+                      <FiEdit2 size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(order)}
+                      className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-red-50 text-red-500"
+                      aria-label="Supprimer"
+                    >
+                      <FiTrash2 size={15} />
+                    </button>
+                  </div>
                 </div>
+
+                <OrderItemsList items={order.items} className="mb-2" />
 
                 <p className="text-sm text-ink font-medium">{order.customer?.fullName}</p>
                 <p className="text-xs text-ink/60">{order.customer?.phone}</p>
@@ -156,12 +194,13 @@ export default function AdminOrders() {
               <p className="text-center text-ink/50 py-12">Aucune commande pour l'instant.</p>
             )}
             </div>
-            
+
           <div className="hidden md:block bg-white border border-border rounded-2xl overflow-hidden overflow-x-auto">
             <table className="w-full text-sm min-w-[820px]">
               <thead className="bg-surface text-ink/70 text-left">
                 <tr>
                   <th className="p-4">Commande</th>
+                  <th className="p-4">Produits</th>
                   <th className="p-4">Client</th>
                   <th className="p-4">Livraison</th>
                   <th className="p-4">Total</th>
@@ -177,9 +216,9 @@ export default function AdminOrders() {
                       <p className="text-xs text-ink/50">
                         {new Date(order.createdAt).toLocaleString("fr-FR")}
                       </p>
-                      <p className="text-xs text-ink/50 mt-1">
-                        {order.items?.length || 0} article{(order.items?.length || 0) > 1 ? "s" : ""}
-                      </p>
+                    </td>
+                    <td className="p-4 max-w-[220px]">
+                      <OrderItemsList items={order.items} />
                     </td>
                     <td className="p-4">
                       <p className="text-ink font-medium">{order.customer?.fullName}</p>
@@ -198,20 +237,30 @@ export default function AdminOrders() {
                       <StatusSelect order={order} onChange={handleStatusChange} />
                     </td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => openEditModal(order)}
-                        className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-surface text-ink/70"
-                        aria-label="Modifier la livraison"
-                        title="Modifier la livraison"
-                      >
-                        <FiEdit2 size={15} />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openEditModal(order)}
+                          className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-surface text-ink/70"
+                          aria-label="Modifier la livraison"
+                          title="Modifier la livraison"
+                        >
+                          <FiEdit2 size={15} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(order)}
+                          className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-red-50 text-red-500"
+                          aria-label="Supprimer"
+                          title="Supprimer"
+                        >
+                          <FiTrash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-ink/50">
+                    <td colSpan={7} className="p-8 text-center text-ink/50">
                       Aucune commande pour l'instant.
                     </td>
                   </tr>
@@ -244,15 +293,9 @@ export default function AdminOrders() {
                 <input value={editForm.fullName} onChange={handleEditChange("fullName")} required className="input-field" />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-semibold text-ink mb-1.5 block">Téléphone *</label>
-                  <input value={editForm.phone} onChange={handleEditChange("phone")} required className="input-field" />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold text-ink mb-1.5 block">Email</label>
-                  <input type="email" value={editForm.email} onChange={handleEditChange("email")} className="input-field" />
-                </div>
+              <div>
+                <label className="text-sm font-semibold text-ink mb-1.5 block">Téléphone *</label>
+                <input value={editForm.phone} onChange={handleEditChange("phone")} required className="input-field" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
