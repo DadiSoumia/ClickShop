@@ -3,6 +3,11 @@ import { createContext, useContext, useEffect, useState } from "react";
 const CartContext = createContext(null);
 const STORAGE_KEY = "clickshop_cart";
 
+// Un article de panier est identifié par SA COMBINAISON produit + couleur.
+// "Chemise - Rouge" et "Chemise - Bleu" sont deux lignes distinctes.
+const sameItem = (item, productId, colorName) =>
+  item.productId === productId && (item.colorName || null) === (colorName || null);
+
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState(() => {
     try {
@@ -17,14 +22,19 @@ export const CartProvider = ({ children }) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 
-  // Ajoute un produit ; si déjà présent, augmente simplement la quantité
-  const addToCart = (product, quantity = 1) => {
+  // Ajoute un produit (avec une couleur optionnelle) ; si la même combinaison
+  // produit+couleur existe déjà, augmente simplement la quantité.
+  const addToCart = (product, quantity = 1, colorName = null) => {
+    const matchedColor = colorName ? product.colors?.find((c) => c.name === colorName) : null;
+    const availableStock = matchedColor ? matchedColor.stock : product.stock;
+    const image = matchedColor?.images?.[0] || product.images?.[0] || "";
+
     setCart((prev) => {
-      const existing = prev.find((item) => item.productId === product._id);
+      const existing = prev.find((item) => sameItem(item, product._id, colorName));
       if (existing) {
         return prev.map((item) =>
-          item.productId === product._id
-            ? { ...item, quantity: Math.min(item.quantity + quantity, product.stock) }
+          sameItem(item, product._id, colorName)
+            ? { ...item, quantity: Math.min(item.quantity + quantity, availableStock) }
             : item
         );
       }
@@ -32,25 +42,26 @@ export const CartProvider = ({ children }) => {
         ...prev,
         {
           productId: product._id,
+          colorName: colorName || null,
           name: product.name,
-          image: product.images?.[0] || "",
+          image,
           price: product.price,
           oldPrice: product.oldPrice || null,
-          stock: product.stock,
-          quantity: Math.min(quantity, product.stock),
+          stock: availableStock,
+          quantity: Math.min(quantity, availableStock),
         },
       ];
     });
   };
 
-  const removeFromCart = (productId) => {
-    setCart((prev) => prev.filter((item) => item.productId !== productId));
+  const removeFromCart = (productId, colorName = null) => {
+    setCart((prev) => prev.filter((item) => !sameItem(item, productId, colorName)));
   };
 
-  const updateQuantity = (productId, quantity) => {
+  const updateQuantity = (productId, colorName, quantity) => {
     setCart((prev) =>
       prev.map((item) =>
-        item.productId === productId
+        sameItem(item, productId, colorName)
           ? { ...item, quantity: Math.max(1, Math.min(quantity, item.stock)) }
           : item
       )
@@ -59,12 +70,11 @@ export const CartProvider = ({ children }) => {
 
   const clearCart = () => setCart([]);
 
-  // Vérifie si un produit est déjà présent dans le panier
-  const isInCart = (productId) => cart.some((item) => item.productId === productId);
+  const isInCart = (productId, colorName = null) =>
+    cart.some((item) => sameItem(item, productId, colorName));
 
-  // Récupère la quantité déjà présente dans le panier pour un produit donné
-  const getCartQuantity = (productId) =>
-    cart.find((item) => item.productId === productId)?.quantity || 0;
+  const getCartQuantity = (productId, colorName = null) =>
+    cart.find((item) => sameItem(item, productId, colorName))?.quantity || 0;
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);

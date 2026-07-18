@@ -29,18 +29,19 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    items: [
-      {
-        product: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Product",
-          required: true,
-        },
-        name: { type: String, required: true }, 
-        quantity: { type: Number, required: true, min: 1 },
-        unitPrice: { type: Number, required: true },
-      },
-    ],
+   items: [
+  {
+    product: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
+    },
+    name: { type: String, required: true },
+    colorName: { type: String, default: null }, // couleur choisie, si le produit en a
+    quantity: { type: Number, required: true, min: 1 },
+    unitPrice: { type: Number, required: true },
+  },
+],
     deliveryFee: {
       type: Number,
       required: true,

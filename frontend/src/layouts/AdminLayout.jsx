@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { FiBox, FiShoppingBag, FiLogOut, FiMenu, FiX } from "react-icons/fi";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../context/useAuth.js";
 
 export default function AdminLayout() {
   const { logout, admin } = useAuth();

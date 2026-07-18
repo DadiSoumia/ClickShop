@@ -113,7 +113,7 @@ export const updateOrderDelivery = async (req, res, next) => {
         return res.status(400).json({ success: false, message: "Frais de livraison invalide." });
       }
       order.deliveryFee = fee;
-      order.total = order.subtotal + fee; // recalcul automatique du total
+      order.total = order.subtotal + fee;
     }
 
     await order.save();
@@ -136,7 +136,7 @@ export const deleteOrder = async (req, res, next) => {
   }
 };
 
-// GET /api/admin/orders/stats/summary — petit résumé utile pour le dashboard
+// GET /api/admin/orders/stats/summary
 export const getOrdersSummary = async (req, res, next) => {
   try {
     const [counts, revenueAgg] = await Promise.all([

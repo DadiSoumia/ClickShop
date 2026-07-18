@@ -15,7 +15,7 @@ export default function OrderForm() {
   const navigate = useNavigate();
   const { cart, clearCart } = useCart();
 
-  // "checkoutItems" unifie les deux flux en une seule liste : [{ productId, name, image, price, quantity }]
+  // "checkoutItems" unifie les deux flux : [{ productId, colorName, name, image, price, stock, quantity }]
   const [checkoutItems, setCheckoutItems] = useState(id ? undefined : cart);
 
   const [form, setForm] = useState({
@@ -29,19 +29,23 @@ export default function OrderForm() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Achat direct : on charge le produit unique demandé
+  // Achat direct : on charge le produit unique demandé, avec sa couleur choisie s'il y en a une
   useEffect(() => {
     if (!id) return;
     fetchProductById(id)
       .then((res) => {
         const product = res.data.data;
+        const colorName = state?.colorName || null;
+        const matchedColor = colorName ? product.colors?.find((c) => c.name === colorName) : null;
+
         setCheckoutItems([
           {
             productId: product._id,
+            colorName,
             name: product.name,
-            image: product.images?.[0] || "",
+            image: matchedColor?.images?.[0] || product.images?.[0] || "",
             price: product.price,
-            stock: product.stock,
+            stock: matchedColor ? matchedColor.stock : product.stock,
             quantity: state?.quantity || 1,
           },
         ]);
@@ -50,7 +54,8 @@ export default function OrderForm() {
   }, [id]);
 
   // Checkout panier : le stock mis en cache dans le panier peut être périmé
-  // (un autre client a pu acheter entre-temps) → on revérifie le stock réel.
+  // (un autre client a pu acheter entre-temps) → on revérifie le stock réel,
+  // en tenant compte de la couleur choisie pour chaque article.
   useEffect(() => {
     if (id) return;
     if (cart.length === 0) return;
@@ -66,11 +71,15 @@ export default function OrderForm() {
         cart.map((item, i) => {
           const product = products[i];
           if (!product) return item; // produit introuvable : on garde tel quel, le serveur validera
+          const matchedColor = item.colorName
+            ? product.colors?.find((c) => c.name === item.colorName)
+            : null;
+          const freshStock = matchedColor ? matchedColor.stock : product.stock;
           return {
             ...item,
             price: product.price,
-            stock: product.stock,
-            quantity: Math.min(item.quantity, product.stock),
+            stock: freshStock,
+            quantity: Math.min(item.quantity, freshStock),
           };
         })
       );
@@ -105,10 +114,11 @@ export default function OrderForm() {
     );
   }
 
-  const setItemQuantity = (productId, quantity) => {
+  // Identifie un article par produit + couleur, comme dans le panier
+  const setItemQuantity = (productId, colorName, quantity) => {
     setCheckoutItems((prev) =>
       prev.map((item) =>
-        item.productId === productId
+        item.productId === productId && item.colorName === colorName
           ? { ...item, quantity: Math.max(1, Math.min(quantity, item.stock || 99)) }
           : item
       )
@@ -161,6 +171,7 @@ export default function OrderForm() {
         note: form.note || null,
         items: checkoutItems.map((item) => ({
           productId: item.productId,
+          colorName: item.colorName || null,
           quantity: item.quantity,
         })),
       });
@@ -280,13 +291,13 @@ export default function OrderForm() {
           </button>
         </div>
 
-        {/* Résumé — liste tous les articles (1 ou plusieurs) */}
+        {/* Résumé — liste tous les articles (1 ou plusieurs), avec leur couleur */}
         <aside className="h-fit rounded-2xl border border-border bg-surface p-6 order-1 lg:order-2">
           <h2 className="font-display text-lg font-semibold text-ink mb-4">Résumé de la commande</h2>
 
           <div className="space-y-3">
             {checkoutItems.map((item) => (
-              <div key={item.productId} className="flex gap-3">
+              <div key={`${item.productId}-${item.colorName || "default"}`} className="flex gap-3">
                 <img
                   src={getImageUrl(item.image)}
                   alt={item.name}
@@ -294,10 +305,13 @@ export default function OrderForm() {
                 />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-ink line-clamp-1">{item.name}</p>
+                  {item.colorName && (
+                    <p className="text-xs text-ink/50 mt-0.5">Couleur : {item.colorName}</p>
+                  )}
                   <div className="flex items-center gap-2 mt-1">
                     <button
                       type="button"
-                      onClick={() => setItemQuantity(item.productId, item.quantity - 1)}
+                      onClick={() => setItemQuantity(item.productId, item.colorName, item.quantity - 1)}
                       className="h-6 w-6 flex items-center justify-center rounded-full border border-border"
                     >
                       <FiMinus size={10} />
@@ -305,7 +319,7 @@ export default function OrderForm() {
                     <span className="text-xs text-ink/60 w-4 text-center">{item.quantity}</span>
                     <button
                       type="button"
-                      onClick={() => setItemQuantity(item.productId, item.quantity + 1)}
+                      onClick={() => setItemQuantity(item.productId, item.colorName, item.quantity + 1)}
                       className="h-6 w-6 flex items-center justify-center rounded-full border border-border"
                     >
                       <FiPlus size={10} />

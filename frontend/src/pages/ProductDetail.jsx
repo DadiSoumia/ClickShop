@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { FiMinus, FiPlus, FiShoppingCart } from "react-icons/fi";
+import { FiMinus, FiPlus, FiShoppingCart, FiCheck } from "react-icons/fi";
 import BackButton from "../components/BackButton.jsx";
 import Skeleton from "../components/Skeleton.jsx";
 import { fetchProductById, getImageUrl } from "../services/api.js";
@@ -15,10 +15,19 @@ export default function ProductDetail() {
   const [product, setProduct] = useState(undefined);
   const [quantity, setQuantity] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
+  const [selectedColor, setSelectedColor] = useState(null); // null = pas de variante couleur
 
   useEffect(() => {
     fetchProductById(id)
-      .then((res) => setProduct(res.data.data))
+      .then((res) => {
+        const data = res.data.data;
+        setProduct(data);
+        // Sélectionne automatiquement la première couleur en stock par défaut
+        if (data.colors?.length > 0) {
+          const firstInStock = data.colors.find((c) => c.stock > 0) || data.colors[0];
+          setSelectedColor(firstInStock);
+        }
+      })
       .catch(() => setProduct(null));
   }, [id]);
 
@@ -53,20 +62,33 @@ export default function ProductDetail() {
     );
   }
 
+  const hasColors = product.colors?.length > 0;
   const hasPromo = product.oldPrice && product.oldPrice > product.price;
-  const outOfStock = product.stock <= 0;
-  const inCart = isInCart(product._id);
+
+  // Stock et image affichés dépendent de la couleur sélectionnée (si applicable)
+  const activeStock = hasColors ? selectedColor?.stock ?? 0 : product.stock;
+  const activeImage = hasColors && selectedColor?.images?.[0] ? selectedColor.images[0] : product.images[0];
+  const outOfStock = activeStock <= 0;
+
+  const inCart = isInCart(product._id, selectedColor?.name || null);
+
+  const handleColorSelect = (color) => {
+    setSelectedColor(color);
+    setQuantity(1); // évite une quantité invalide si le stock de la nouvelle couleur est plus bas
+  };
 
   const handleBuyNow = () => {
-    navigate(`/commande/${product._id}`, { state: { quantity } });
+    navigate(`/commande/${product._id}`, {
+      state: { quantity, colorName: selectedColor?.name || null },
+    });
   };
 
   const handleToggleCart = () => {
     if (inCart) {
-      removeFromCart(product._id);
+      removeFromCart(product._id, selectedColor?.name || null);
       return;
     }
-    addToCart(product, quantity);
+    addToCart(product, quantity, selectedColor?.name || null);
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1800);
   };
@@ -76,7 +98,7 @@ export default function ProductDetail() {
       <BackButton />
       <div className="grid md:grid-cols-2 gap-5 sm:gap-8 md:gap-10">
         <div className="aspect-square rounded-xl sm:rounded-2xl overflow-hidden border border-border">
-          <img src={getImageUrl(product.images[0])} alt={product.name} className="h-full w-full object-cover" />
+          <img src={getImageUrl(activeImage)} alt={product.name} className="h-full w-full object-cover" />
         </div>
 
         <div>
@@ -94,8 +116,42 @@ export default function ProductDetail() {
 
           <p className="text-sm sm:text-base text-ink/70 mt-3 sm:mt-4 leading-relaxed">{product.description}</p>
 
+          {/* --- Sélecteur de couleur --- */}
+          {hasColors && (
+            <div className="mt-4 sm:mt-5">
+              <span className="text-sm font-semibold text-ink">
+                Couleur {selectedColor && <span className="text-ink/50 font-normal">— {selectedColor.name}</span>}
+              </span>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {product.colors.map((color) => {
+                  const isSelected = selectedColor?.name === color.name;
+                  const colorOutOfStock = color.stock <= 0;
+                  return (
+                    <button
+                      key={color.name}
+                      type="button"
+                      onClick={() => handleColorSelect(color)}
+                      title={colorOutOfStock ? `${color.name} — rupture de stock` : color.name}
+                      className={`relative h-9 w-9 sm:h-10 sm:w-10 rounded-full border-2 flex items-center justify-center transition ${
+                        isSelected ? "border-primary" : "border-border"
+                      } ${colorOutOfStock ? "opacity-30" : ""}`}
+                      style={{ backgroundColor: color.hex }}
+                    >
+                      {isSelected && (
+                        <FiCheck
+                          size={14}
+                          className={color.hex === "#FFFFFF" || color.hex === "#ffffff" ? "text-ink" : "text-white"}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <p className={`mt-3 sm:mt-4 text-xs sm:text-sm font-semibold ${outOfStock ? "text-red-500" : "text-primary"}`}>
-            {outOfStock ? "Rupture de stock" : `En stock — ${product.stock} unités disponibles`}
+           
           </p>
 
           <div className="flex items-center gap-3 sm:gap-4 mt-5 sm:mt-6">
@@ -110,7 +166,7 @@ export default function ProductDetail() {
               </button>
               <span className="w-8 text-center font-semibold text-sm">{quantity}</span>
               <button
-                onClick={() => setQuantity((q) => Math.min(product.stock, q + 1))}
+                onClick={() => setQuantity((q) => Math.min(activeStock, q + 1))}
                 className="h-9 w-9 sm:h-10 sm:w-10 flex items-center justify-center"
                 aria-label="Augmenter"
               >

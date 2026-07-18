@@ -8,6 +8,11 @@ import {
 } from "../utils/generateTokens.js";
 import jwt from "jsonwebtoken";
 
+// clearCookie ne doit pas recevoir "maxAge" (dépréciation Express) :
+// on réutilise les mêmes options (path/domain/secure/sameSite/httpOnly)
+// mais sans la durée de vie, puisqu'on ne fait que supprimer le cookie.
+const { maxAge, ...clearCookieOptions } = refreshCookieOptions;
+
 export const login = async (req, res, next) => {
   try {
    const { email, password } = req.body;
@@ -80,14 +85,14 @@ export const refresh = async (req, res, next) => {
     try {
       decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     } catch {
-      res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions);
+      res.clearCookie(REFRESH_COOKIE_NAME, clearCookieOptions);
       return res.status(401).json({ success: false, message: "Session invalide." });
     }
 
     const admin = await Admin.findById(decoded.id).select("+refreshTokenHash");
 
     if (!admin || !admin.isActive || admin.refreshTokenHash !== hashToken(token)) {
-      res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions);
+      res.clearCookie(REFRESH_COOKIE_NAME, clearCookieOptions);
       return res.status(401).json({ success: false, message: "Session invalide." });
     }
 
@@ -117,7 +122,7 @@ export const logout = async (req, res, next) => {
       }
     }
 
-    res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions);
+    res.clearCookie(REFRESH_COOKIE_NAME, clearCookieOptions);
     res.json({ success: true, message: "Déconnecté." });
   } catch (error) {
     next(error);
@@ -163,7 +168,7 @@ export const changePassword = async (req, res, next) => {
     admin.refreshTokenHash = null; 
     await admin.save();
 
-    res.clearCookie(REFRESH_COOKIE_NAME, refreshCookieOptions);
+    res.clearCookie(REFRESH_COOKIE_NAME, clearCookieOptions);
     res.json({ success: true, message: "Mot de passe modifié. Veuillez vous reconnecter." });
   } catch (error) {
     next(error);

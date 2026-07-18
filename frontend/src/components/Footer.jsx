@@ -1,38 +1,62 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { FiInstagram, FiFacebook } from "react-icons/fi";
+import { FiInstagram, FiFacebook, FiMail, FiArrowRight, FiCheck } from "react-icons/fi";
 
 export default function Footer() {
   const year = new Date().getFullYear();
+  const [email, setEmail] = useState("");
+  const [subscribed, setSubscribed] = useState(false);
+
+  const handleSubscribe = (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    // Pas de backend de newsletter pour l'instant — retour visuel simple.
+    setSubscribed(true);
+    setEmail("");
+  };
 
   return (
-    <footer className="bg-surface border-t border-border">
-      <div className="container-page py-12 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
-       
-        <div>
-          <Link to="/" className="font-display text-2xl font-bold text-ink">
+    <footer className="bg-ink text-white">
+      {/* Newsletter */}
+      
+
+      {/* Colonnes de liens */}
+      <div className="container-page py-12 sm:py-16 grid grid-cols-2 sm:grid-cols-4 gap-8 sm:gap-10">
+        <div className="col-span-2 sm:col-span-1">
+          <Link to="/" className="font-display text-2xl font-bold text-white">
             ClickShop<span className="text-primary">.</span>
           </Link>
-          <p className="mt-3 text-sm text-ink/70 max-w-xs">
-            Votre boutique en ligne pour la technologie, la mode, et la beauté.
+          <p className="mt-3 text-sm text-white/60 max-w-xs leading-relaxed">
+            Votre boutique en ligne pour la technologie, la mode et la beauté.
           </p>
-        </div>
-
-      
-        <div className="text-center sm:text-left">
-          <h4 className="font-display font-semibold text-ink mb-3">Suivez-nous</h4>
-          <div className="flex gap-3 justify-center sm:justify-start">
-            <a href="#" className="h-10 w-10 flex items-center justify-center rounded-full bg-white border border-border hover:bg-primary hover:text-white transition-colors">
-              <FiInstagram size={16} />
+          <div className="flex gap-2.5 mt-5">
+            <a
+              href="https://www.facebook.com/clickshopdz16"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook"
+              className="h-9 w-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-primary transition-all duration-300 hover:scale-105"
+            >
+              <FiFacebook size={15} />
             </a>
-            <a href="https://www.facebook.com/clickshopdz16" className="h-10 w-10 flex items-center justify-center rounded-full bg-white border border-border hover:bg-primary hover:text-white transition-colors">
-              <FiFacebook size={16} />
+            <a
+              href="#"
+              aria-label="Instagram"
+              className="h-9 w-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-primary transition-all duration-300 hover:scale-105"
+            >
+              <FiInstagram size={15} />
             </a>
           </div>
         </div>
+
+
+       
+
+       
       </div>
 
-      <div className="border-t border-border">
-        <p className="container-page py-4 text-xs text-ink/60 text-center">
+      <div className="border-t border-white/10">
+        <p className="container-page py-5 text-xs text-white/50 text-center">
           © {year} ClickShop. Tous droits réservés.
         </p>
       </div>

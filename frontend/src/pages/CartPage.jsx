@@ -39,7 +39,7 @@ export default function CartPage() {
         <div className="space-y-3 sm:space-y-4">
           {cart.map((item) => (
             <div
-              key={item.productId}
+              key={`${item.productId}-${item.colorName || "default"}`}
               className="flex gap-3 sm:gap-4 bg-white border border-border rounded-xl sm:rounded-2xl p-3 sm:p-4"
             >
               <img
@@ -49,6 +49,9 @@ export default function CartPage() {
               />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-ink text-sm sm:text-base line-clamp-1">{item.name}</p>
+                {item.colorName && (
+                  <p className="text-xs text-ink/50 mt-0.5">Couleur : {item.colorName}</p>
+                )}
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="font-bold text-ink text-sm sm:text-base">{formatPrice(item.price)}</span>
                   {item.oldPrice && (
@@ -59,7 +62,7 @@ export default function CartPage() {
                 <div className="flex items-center justify-between mt-3">
                   <div className="inline-flex items-center border border-border rounded-full">
                     <button
-                      onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                      onClick={() => updateQuantity(item.productId, item.colorName, item.quantity - 1)}
                       className="h-8 w-8 flex items-center justify-center"
                       aria-label="Diminuer"
                     >
@@ -67,7 +70,7 @@ export default function CartPage() {
                     </button>
                     <span className="w-8 text-center text-sm font-semibold">{item.quantity}</span>
                     <button
-                      onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                      onClick={() => updateQuantity(item.productId, item.colorName, item.quantity + 1)}
                       className="h-8 w-8 flex items-center justify-center"
                       aria-label="Augmenter"
                     >
@@ -76,7 +79,7 @@ export default function CartPage() {
                   </div>
 
                   <button
-                    onClick={() => removeFromCart(item.productId)}
+                    onClick={() => removeFromCart(item.productId, item.colorName)}
                     className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-red-50 text-red-500"
                     aria-label="Retirer du panier"
                   >

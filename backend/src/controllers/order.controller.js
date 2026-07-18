@@ -17,26 +17,41 @@ export const createOrder = async (req, res, next) => {
       return res.status(400).json({ message: "Informations manquantes pour la commande." });
     }
 
-    // Récupère tous les produits concernés en une seule requête
     const productIds = items.map((i) => i.productId);
     const products = await Product.find({ _id: { $in: productIds } });
 
     const orderItems = [];
     let subtotal = 0;
 
-    for (const { productId, quantity } of items) {
+    for (const { productId, quantity, colorName } of items) {
       const product = products.find((p) => p._id.toString() === productId);
 
       if (!product) {
         return res.status(404).json({ message: `Produit introuvable (${productId}).` });
       }
-      if (product.stock < quantity) {
+
+      // Si le produit a des couleurs, on vérifie le stock DE LA COULEUR choisie, pas le stock global
+      let availableStock = product.stock;
+      let matchedColor = null;
+
+      if (product.colors?.length > 0) {
+        matchedColor = product.colors.find((c) => c.name === colorName);
+        if (!matchedColor) {
+          return res.status(400).json({
+            message: `Merci de préciser une couleur valide pour "${product.name}".`,
+          });
+        }
+        availableStock = matchedColor.stock;
+      }
+
+      if (availableStock < quantity) {
         return res.status(400).json({ message: `Stock insuffisant pour "${product.name}".` });
       }
 
       orderItems.push({
         product: product._id,
         name: product.name,
+        colorName: matchedColor ? matchedColor.name : null,
         quantity,
         unitPrice: product.price,
       });
@@ -59,9 +74,24 @@ export const createOrder = async (req, res, next) => {
       total,
     });
 
-    // Décrémente le stock de chaque produit commandé
-    for (const { productId, quantity } of items) {
-      await Product.findByIdAndUpdate(productId, { $inc: { stock: -quantity } });
+    // Décrémente le stock : celui de la couleur précise ET le stock global en même temps
+    for (const { productId, quantity, colorName } of items) {
+      const product = products.find((p) => p._id.toString() === productId);
+
+      if (product.colors?.length > 0 && colorName) {
+        await Product.updateOne(
+          { _id: productId, "colors.name": colorName },
+          {
+            $inc: {
+              "colors.$[c].stock": -quantity,
+              stock: -quantity,
+            },
+          },
+          { arrayFilters: [{ "c.name": colorName }] }
+        );
+      } else {
+        await Product.findByIdAndUpdate(productId, { $inc: { stock: -quantity } });
+      }
     }
 
     res.status(201).json({ data: order });

@@ -4,6 +4,7 @@ import SectionHeader from "../components/SectionHeader.jsx";
 import CategoryCard from "../components/CategoryCard.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 import WhyUs from "../components/WhyUs.jsx";
+import Reveal from "../components/Reveal.jsx";
 import useProducts from "../hooks/useProducts.js";
 import useCategories from "../hooks/useCategories.js";
 import ProductCardSkeleton from "../components/ProductCardSkeleton.jsx";
@@ -22,16 +23,16 @@ export default function Home() {
         <Hero />
       </div>
 
-      
-      <section id="categories" className="py-8 sm:py-12 md:py-16">
-        <div className="container-page">
+      <section id="categories" className="py-12 sm:py-20 md:py-28">
+        <Reveal className="container-page">
           <SectionHeader title="Nos catégories" subtitle="Explorez nos univers de produits" />
-        </div>
+        </Reveal>
 
         {!categoriesLoading && categories.length === 0 ? (
           <p className="text-center text-ink/50 text-sm">Aucune catégorie pour le moment.</p>
         ) : (
-          <div
+          <Reveal
+            delay={0.1}
             className={`flex gap-2.5 sm:gap-4 overflow-x-auto snap-x snap-mandatory pb-2 px-4 sm:px-6 lg:px-8 ${HIDE_SCROLLBAR}`}
           >
             {categories.map((c) => (
@@ -39,17 +40,18 @@ export default function Home() {
                 <CategoryCard category={c} />
               </div>
             ))}
-          </div>
+          </Reveal>
         )}
       </section>
 
       {/* Produits populaires — carrousel horizontal */}
-      <section id="produits" className="bg-surface py-8 sm:py-12 md:py-16">
-        <div className="container-page">
+      <section id="produits" className="bg-surface py-12 sm:py-20 md:py-28">
+        <Reveal className="container-page">
           <SectionHeader title="Produits populaires" />
-        </div>
+        </Reveal>
 
-        <div
+        <Reveal
+          delay={0.1}
           className={`flex gap-2.5 sm:gap-5 overflow-x-auto snap-x snap-mandatory pb-2 px-4 sm:px-6 lg:px-8 ${HIDE_SCROLLBAR}`}
         >
           {loading
@@ -63,10 +65,12 @@ export default function Home() {
                   <ProductCard product={p} />
                 </div>
               ))}
-        </div>
+        </Reveal>
       </section>
 
-      <WhyUs />
+      <Reveal>
+        <WhyUs />
+      </Reveal>
     </div>
   );
 }

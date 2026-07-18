@@ -1,21 +1,29 @@
 import { Link } from "react-router-dom";
+import { FiArrowRight } from "react-icons/fi";
 
 export default function CategoryCard({ category }) {
   return (
     <Link
       to={`/produits?category=${category.id}`}
-      className="group relative flex items-end aspect-square overflow-hidden rounded-xl sm:rounded-2xl border border-border"
+      className="group relative flex items-end aspect-[4/5] overflow-hidden rounded-2xl border border-border/60 shadow-soft transition-all duration-500 ease-premium hover:shadow-card-hover hover:-translate-y-1"
     >
       <img
         src={category.image}
         alt={category.name}
         loading="lazy"
-        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+        className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-premium group-hover:scale-110"
       />
-      <div className="absolute inset-0 bg-ink/40 group-hover:bg-ink/50 transition-colors" />
-      <span className="relative z-10 p-2.5 sm:p-4 font-display text-sm sm:text-base font-semibold text-white">
-        {category.name}
-      </span>
+      {/* Overlay dégradé — plus élégant qu'un aplat uni */}
+      <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/20 to-transparent transition-opacity duration-500 group-hover:from-ink/90" />
+
+      <div className="relative z-10 p-3 sm:p-5 w-full">
+        <span className="font-display text-sm sm:text-lg font-semibold text-white block">
+          {category.name}
+        </span>
+        <span className="flex items-center gap-1 text-[10px] sm:text-xs font-medium text-white/0 group-hover:text-white/90 max-h-0 group-hover:max-h-6 overflow-hidden transition-all duration-300 mt-0 group-hover:mt-1.5">
+          Découvrir <FiArrowRight size={12} className="transition-transform duration-300 group-hover:translate-x-1" />
+        </span>
+      </div>
     </Link>
   );
 }

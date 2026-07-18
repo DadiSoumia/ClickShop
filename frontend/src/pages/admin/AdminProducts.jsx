@@ -21,7 +21,11 @@ const emptyForm = {
   image: "",
   isPromo: false,
   oldPrice: "",
+  hasColors: false,
+  colors: [], // [{ name, hex, image, stock, uploading }]
 };
+
+const emptyColor = { name: "", hex: "#000000", image: "", stock: "" };
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -34,6 +38,7 @@ export default function AdminProducts() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef(null);
+  const colorFileInputRefs = useRef({});
 
   const loadProducts = () => {
     setLoading(true);
@@ -60,6 +65,7 @@ export default function AdminProducts() {
   const openEditModal = (product) => {
     setEditingId(product._id);
     const hasPromo = !!(product.oldPrice && product.oldPrice > product.price);
+    const hasColors = product.colors?.length > 0;
     setForm({
       name: product.name,
       category: product.category,
@@ -69,6 +75,15 @@ export default function AdminProducts() {
       image: product.images?.[0] || "",
       isPromo: hasPromo,
       oldPrice: hasPromo ? product.oldPrice : "",
+      hasColors,
+      colors: hasColors
+        ? product.colors.map((c) => ({
+            name: c.name,
+            hex: c.hex || "#000000",
+            image: c.images?.[0] || "",
+            stock: c.stock,
+          }))
+        : [],
     });
     setError("");
     setModalOpen(true);
@@ -80,6 +95,15 @@ export default function AdminProducts() {
   const handleTogglePromo = (e) => {
     const checked = e.target.checked;
     setForm((f) => ({ ...f, isPromo: checked, oldPrice: checked ? f.oldPrice : "" }));
+  };
+
+  const handleToggleColors = (e) => {
+    const checked = e.target.checked;
+    setForm((f) => ({
+      ...f,
+      hasColors: checked,
+      colors: checked && f.colors.length === 0 ? [{ ...emptyColor }] : f.colors,
+    }));
   };
 
   const handleImageSelect = async (e) => {
@@ -98,6 +122,39 @@ export default function AdminProducts() {
     }
   };
 
+  // --- Gestion des couleurs ---
+
+  const addColorRow = () => {
+    setForm((f) => ({ ...f, colors: [...f.colors, { ...emptyColor }] }));
+  };
+
+  const removeColorRow = (index) => {
+    setForm((f) => ({ ...f, colors: f.colors.filter((_, i) => i !== index) }));
+  };
+
+  const updateColorField = (index, field, value) => {
+    setForm((f) => ({
+      ...f,
+      colors: f.colors.map((c, i) => (i === index ? { ...c, [field]: value } : c)),
+    }));
+  };
+
+  const handleColorImageSelect = async (index, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError("");
+    updateColorField(index, "uploading", true);
+    try {
+      const res = await uploadProductImage(file);
+      updateColorField(index, "image", res.data.data.url);
+    } catch (err) {
+      setError(err.response?.data?.message || "Échec de l'envoi de l'image de la couleur.");
+    } finally {
+      updateColorField(index, "uploading", false);
+    }
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     setError("");
@@ -111,11 +168,37 @@ export default function AdminProducts() {
       const priceNum = Number(form.price);
       const oldPriceNum = Number(form.oldPrice);
       if (!form.oldPrice || oldPriceNum <= priceNum) {
-        setError(
-          "Pour une promotion, le prix normal doit être supérieur au prix promo affiché."
-        );
+        setError("Pour une promotion, le prix normal doit être supérieur au prix promo affiché.");
         return;
       }
+    }
+
+    let colorsPayload = [];
+    let stockPayload = Number(form.stock);
+
+    if (form.hasColors) {
+      if (form.colors.length === 0) {
+        setError("Ajoutez au moins une couleur, ou décochez « produit à plusieurs couleurs ».");
+        return;
+      }
+      for (const c of form.colors) {
+        if (!c.name.trim()) {
+          setError("Chaque couleur doit avoir un nom.");
+          return;
+        }
+        if (c.stock === "" || Number(c.stock) < 0) {
+          setError(`Stock invalide pour la couleur "${c.name}".`);
+          return;
+        }
+      }
+      colorsPayload = form.colors.map((c) => ({
+        name: c.name.trim(),
+        hex: c.hex,
+        images: c.image ? [c.image] : [],
+        stock: Number(c.stock),
+      }));
+      // Le stock global reste synchronisé = somme des stocks par couleur
+      stockPayload = colorsPayload.reduce((sum, c) => sum + c.stock, 0);
     }
 
     setSaving(true);
@@ -125,9 +208,10 @@ export default function AdminProducts() {
       category: form.category.toLowerCase().trim(),
       price: Number(form.price),
       oldPrice: form.isPromo ? Number(form.oldPrice) : null,
-      stock: Number(form.stock),
+      stock: stockPayload,
       description: form.description,
       images: [form.image],
+      colors: colorsPayload,
     };
 
     try {
@@ -168,7 +252,7 @@ export default function AdminProducts() {
         <p className="text-ink/50">Chargement...</p>
       ) : (
         <>
-         
+          {/* --- Vue CARTES : mobile/tablette --- */}
           <div className="md:hidden space-y-3">
             {products.map((p) => {
               const hasPromo = p.oldPrice && p.oldPrice > p.price;
@@ -182,6 +266,13 @@ export default function AdminProducts() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-ink line-clamp-1">{p.name}</p>
                     <p className="text-xs text-ink/50 capitalize">{p.category}</p>
+                    {p.colors?.length > 0 && (
+                      <div className="flex gap-1 mt-1">
+                        {p.colors.map((c) => (
+                          <span key={c.name} title={c.name} className="h-3 w-3 rounded-full border border-border" style={{ backgroundColor: c.hex }} />
+                        ))}
+                      </div>
+                    )}
                     <div className="flex items-baseline gap-2 mt-1">
                       <span className="font-semibold text-ink text-sm">{formatPrice(p.price)}</span>
                       {hasPromo && (
@@ -216,12 +307,14 @@ export default function AdminProducts() {
             )}
           </div>
 
+          {/* --- Vue TABLEAU : desktop --- */}
           <div className="hidden md:block bg-white border border-border rounded-2xl overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-surface text-ink/70 text-left">
                 <tr>
                   <th className="p-4">Produit</th>
                   <th className="p-4">Catégorie</th>
+                  <th className="p-4">Couleurs</th>
                   <th className="p-4">Prix</th>
                   <th className="p-4">Stock</th>
                   <th className="p-4 text-right">Actions</th>
@@ -237,6 +330,17 @@ export default function AdminProducts() {
                         <span className="font-semibold text-ink line-clamp-1">{p.name}</span>
                       </td>
                       <td className="p-4 capitalize text-ink/70">{p.category}</td>
+                      <td className="p-4">
+                        {p.colors?.length > 0 ? (
+                          <div className="flex gap-1">
+                            {p.colors.map((c) => (
+                              <span key={c.name} title={`${c.name} (${c.stock})`} className="h-4 w-4 rounded-full border border-border" style={{ backgroundColor: c.hex }} />
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-ink/30">—</span>
+                        )}
+                      </td>
                       <td className="p-4 text-ink">
                         <div className="flex items-baseline gap-2">
                           <span className="font-semibold">{formatPrice(p.price)}</span>
@@ -273,7 +377,7 @@ export default function AdminProducts() {
                 })}
                 {products.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-ink/50">
+                    <td colSpan={6} className="p-8 text-center text-ink/50">
                       Aucun produit pour l'instant.
                     </td>
                   </tr>
@@ -286,7 +390,7 @@ export default function AdminProducts() {
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between p-6 border-b border-border">
               <h2 className="font-display text-lg font-bold text-ink">
                 {editingId ? "Modifier le produit" : "Ajouter un produit"}
@@ -297,9 +401,11 @@ export default function AdminProducts() {
             </div>
 
             <form onSubmit={handleSave} className="p-6 space-y-4">
-             
+              {/* --- Image principale --- */}
               <div>
-                <label className="text-sm font-semibold text-ink mb-1.5 block">Image du produit *</label>
+                <label className="text-sm font-semibold text-ink mb-1.5 block">
+                  Image principale * <span className="text-ink/40 font-normal">(utilisée sur les listes produits)</span>
+                </label>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -321,13 +427,9 @@ export default function AdminProducts() {
                   <div className="text-sm">
                     {uploading ? (
                       <span className="text-primary font-medium">Envoi en cours...</span>
-                    ) : form.image ? (
-                      <span className="text-ink/70 font-medium flex items-center gap-1.5">
-                        <FiUploadCloud size={14} /> Cliquez pour changer l'image
-                      </span>
                     ) : (
                       <span className="text-ink/70 font-medium flex items-center gap-1.5">
-                        <FiUploadCloud size={14} /> Cliquez pour choisir une image
+                        <FiUploadCloud size={14} /> {form.image ? "Cliquez pour changer l'image" : "Cliquez pour choisir une image"}
                       </span>
                     )}
                     <p className="text-ink/40 text-xs mt-0.5">JPG, PNG ou WEBP — 5 Mo max</p>
@@ -343,12 +445,7 @@ export default function AdminProducts() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-semibold text-ink mb-1.5 block">Catégorie *</label>
-                  <select
-                    value={form.category}
-                    onChange={handleChange("category")}
-                    required
-                    className="input-field"
-                  >
+                  <select value={form.category} onChange={handleChange("category")} required className="input-field">
                     <option value="">Sélectionner...</option>
                     {categories.map((cat) => (
                       <option key={cat._id} value={cat.slug}>
@@ -357,47 +454,42 @@ export default function AdminProducts() {
                     ))}
                   </select>
                   {categories.length === 0 && (
-                    <p className="text-xs text-ink/40 mt-1">
-                      Aucune catégorie — créez-en une dans l'onglet Catégories.
-                    </p>
+                    <p className="text-xs text-ink/40 mt-1">Aucune catégorie — créez-en une dans l'onglet Catégories.</p>
                   )}
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-ink mb-1.5 block">Stock *</label>
-                  <input type="number" value={form.stock} onChange={handleChange("stock")} required min="0" className="input-field" />
+                  <label className="text-sm font-semibold text-ink mb-1.5 block">
+                    Stock {form.hasColors && <span className="text-ink/40 font-normal">(auto)</span>} *
+                  </label>
+                  <input
+                    type="number"
+                    value={form.hasColors ? form.colors.reduce((s, c) => s + (Number(c.stock) || 0), 0) : form.stock}
+                    onChange={handleChange("stock")}
+                    required={!form.hasColors}
+                    min="0"
+                    disabled={form.hasColors}
+                    className="input-field disabled:bg-surface disabled:text-ink/50"
+                  />
                 </div>
               </div>
 
+              {/* --- Bloc Prix / Promotion --- */}
               <div className="rounded-xl border border-border p-4 space-y-3 bg-surface/40">
                 <div>
                   <label className="text-sm font-semibold text-ink mb-1.5 block">
                     {form.isPromo ? "Prix promo (affiché aux clients) *" : "Prix (DA) *"}
                   </label>
-                  <input
-                    type="number"
-                    value={form.price}
-                    onChange={handleChange("price")}
-                    required
-                    min="0"
-                    className="input-field"
-                  />
+                  <input type="number" value={form.price} onChange={handleChange("price")} required min="0" className="input-field" />
                 </div>
 
                 <label className="flex items-center gap-2 text-sm font-medium text-ink cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={form.isPromo}
-                    onChange={handleTogglePromo}
-                    className="h-4 w-4 rounded accent-primary"
-                  />
+                  <input type="checkbox" checked={form.isPromo} onChange={handleTogglePromo} className="h-4 w-4 rounded accent-primary" />
                   Mettre ce produit en promotion
                 </label>
 
                 {form.isPromo && (
                   <div>
-                    <label className="text-sm font-semibold text-ink mb-1.5 block">
-                      Prix normal (affiché barré) *
-                    </label>
+                    <label className="text-sm font-semibold text-ink mb-1.5 block">Prix normal (affiché barré) *</label>
                     <input
                       type="number"
                       value={form.oldPrice}
@@ -421,6 +513,94 @@ export default function AdminProducts() {
                 )}
               </div>
 
+              {/* --- Bloc Couleurs --- */}
+              <div className="rounded-xl border border-border p-4 space-y-3 bg-surface/40">
+                <label className="flex items-center gap-2 text-sm font-medium text-ink cursor-pointer select-none">
+                  <input type="checkbox" checked={form.hasColors} onChange={handleToggleColors} className="h-4 w-4 rounded accent-primary" />
+                  Ce produit a plusieurs couleurs
+                </label>
+
+                {form.hasColors && (
+                  <div className="space-y-3">
+                    {form.colors.map((color, index) => (
+                      <div key={index} className="border border-border rounded-lg p-3 bg-white space-y-2">
+                        {/* Ligne 1 : photo + nom + supprimer */}
+                        <div className="flex items-center gap-2">
+                          <input
+                            ref={(el) => (colorFileInputRefs.current[index] = el)}
+                            type="file"
+                            accept="image/png, image/jpeg, image/webp"
+                            onChange={(e) => handleColorImageSelect(index, e)}
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => colorFileInputRefs.current[index]?.click()}
+                            className="h-11 w-11 rounded-lg bg-surface flex items-center justify-center overflow-hidden shrink-0 border border-border"
+                          >
+                            {color.uploading ? (
+                              <span className="text-[9px] text-primary">...</span>
+                            ) : color.image ? (
+                              <img src={getImageUrl(color.image)} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <FiImage className="text-ink/30" size={16} />
+                            )}
+                          </button>
+
+                          <input
+                            value={color.name}
+                            onChange={(e) => updateColorField(index, "name", e.target.value)}
+                            placeholder="Nom (ex: Rouge)"
+                            className="input-field !py-2 text-sm flex-1 min-w-0"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => removeColorRow(index)}
+                            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-red-50 text-red-500 shrink-0"
+                            aria-label="Retirer cette couleur"
+                          >
+                            <FiTrash2 size={14} />
+                          </button>
+                        </div>
+
+                        {/* Ligne 2 : couleur + stock */}
+                        <div className="flex items-center gap-2 pl-1">
+                          <input
+                            type="color"
+                            value={color.hex}
+                            onChange={(e) => updateColorField(index, "hex", e.target.value)}
+                            className="h-9 w-9 shrink-0 rounded cursor-pointer border border-border"
+                            title="Couleur d'affichage"
+                          />
+                          <input
+                            type="number"
+                            value={color.stock}
+                            onChange={(e) => updateColorField(index, "stock", e.target.value)}
+                            placeholder="Stock"
+                            min="0"
+                            className="input-field !py-2 text-sm flex-1 min-w-0"
+                          />
+                          <span className="text-xs text-ink/40 shrink-0">unités</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={addColorRow}
+                      className="text-sm font-semibold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <FiPlus size={14} /> Ajouter une couleur
+                    </button>
+
+                    <p className="text-xs text-ink/40">
+                      Photo par couleur optionnelle — si vide, l'image principale du produit sera utilisée.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="text-sm font-semibold text-ink mb-1.5 block">Description</label>
                 <textarea value={form.description} onChange={handleChange("description")} rows={3} className="input-field resize-none" />
@@ -428,11 +608,7 @@ export default function AdminProducts() {
 
               {error && <p className="text-sm text-red-500">{error}</p>}
 
-              <button
-                type="submit"
-                disabled={saving || uploading}
-                className="btn-primary w-full !py-3 disabled:opacity-60"
-              >
+              <button type="submit" disabled={saving || uploading} className="btn-primary w-full !py-3 disabled:opacity-60">
                 {saving ? "Enregistrement..." : editingId ? "Enregistrer les modifications" : "Créer le produit"}
               </button>
             </form>

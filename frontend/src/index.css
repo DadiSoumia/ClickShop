@@ -1,27 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+* {
+  scroll-behavior: smooth;
+}
+
 body {
-  @apply bg-background text-ink font-sans;
+  @apply bg-background text-ink font-sans antialiased;
 }
 
 h1, h2, h3, h4, .font-display {
   font-family: "Poppins", sans-serif;
 }
 
+/* Boutons — transitions plus douces, légère élévation au survol */
 .btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary text-white font-semibold px-6 py-3 transition-all duration-300 hover:opacity-90 active:scale-95;
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary text-white font-semibold px-6 py-3
+    transition-all duration-300 ease-premium shadow-soft
+    hover:bg-primary-dark hover:shadow-card hover:-translate-y-0.5
+    active:scale-95 active:translate-y-0;
 }
 .btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-secondary text-ink font-semibold px-6 py-3 transition-all duration-300 hover:opacity-90 active:scale-95;
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-secondary text-white font-semibold px-6 py-3
+    transition-all duration-300 ease-premium
+    hover:opacity-90 hover:-translate-y-0.5
+    active:scale-95 active:translate-y-0;
 }
 .btn-outline {
-  @apply inline-flex items-center justify-center gap-2 rounded-full border border-border text-ink font-semibold px-6 py-3 transition-all duration-300 hover:bg-surface;
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-border text-ink font-semibold px-6 py-3
+    transition-all duration-300 ease-premium
+    hover:bg-surface hover:border-primary/40 hover:-translate-y-0.5
+    active:scale-95 active:translate-y-0;
 }
+
 .input-field {
-  @apply w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-ink outline-none focus:border-primary transition-colors;
+  @apply w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-ink outline-none
+    transition-all duration-200
+    focus:border-primary focus:ring-2 focus:ring-primary/10;
 }
+
 .container-page {
   @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Titres de section — usage : <p class="eyebrow">Nos catégories</p> */
+.eyebrow {
+  @apply text-xs sm:text-sm font-semibold uppercase tracking-wide3 text-primary;
+}
+
+.section-title {
+  @apply font-display text-2xl sm:text-3xl md:text-4xl font-bold text-ink;
+}
+
+/* Carte premium réutilisable — coins arrondis, ombre douce, élévation au survol */
+.card-premium {
+  @apply bg-white rounded-2xl border border-border/60 shadow-soft
+    transition-all duration-500 ease-premium
+    hover:shadow-card-hover hover:-translate-y-1;
+}
+
+/* Glassmorphism — navbar, overlays clairs */
+.glass {
+  @apply bg-white/70 backdrop-blur-xl border border-white/40;
+}
+.glass-dark {
+  @apply bg-ink/50 backdrop-blur-md;
 }

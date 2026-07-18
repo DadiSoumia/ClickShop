@@ -32,9 +32,10 @@ export default function OrderConfirmation() {
 
           <div className="mt-4 pt-4 border-t border-border space-y-2">
             {items.map((item) => (
-              <div key={item.productId} className="flex justify-between text-sm text-ink/70">
+              <div key={`${item.productId}-${item.colorName || "default"}`} className="flex justify-between text-sm text-ink/70">
                 <span className="line-clamp-1 pr-3">
-                  {item.name} × {item.quantity}
+                  {item.name}
+                  {item.colorName && <span className="text-ink/50"> ({item.colorName})</span>} × {item.quantity}
                 </span>
                 <span className="shrink-0">{formatPrice(item.price * item.quantity)}</span>
               </div>
