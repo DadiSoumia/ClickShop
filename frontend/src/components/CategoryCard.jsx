@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { FiArrowRight } from "react-icons/fi";
+import { getImageUrl } from "../services/api.js";
 
 export default function CategoryCard({ category }) {
   return (
@@ -8,8 +9,7 @@ export default function CategoryCard({ category }) {
       className="group relative flex items-end aspect-[4/5] overflow-hidden rounded-2xl border border-border/60 shadow-soft transition-all duration-500 ease-premium hover:shadow-card-hover hover:-translate-y-1"
     >
       <img
-        src={category.image}
-        alt={category.name}
+       src={getImageUrl(category.image)} alt={category.name}
         loading="lazy"
         className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-premium group-hover:scale-110"
       />
