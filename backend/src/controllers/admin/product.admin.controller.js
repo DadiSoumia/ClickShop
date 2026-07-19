@@ -4,7 +4,7 @@ export const handleImageUpload = (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: "Aucune image reçue." });
   }
-  const url = `${req.protocol}://${req.get("host")}/uploads/products/${req.file.filename}`;
+  const url = `/uploads/products/${req.file.filename}`;
   res.status(201).json({ success: true, data: { url } });
 };
 
