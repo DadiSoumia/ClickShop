@@ -5,7 +5,8 @@ export const handleCategoryImageUpload = (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: "Aucune image reçue." });
   }
-  const url = `/uploads/categories/${req.file.filename}`;
+  // Avec Cloudinary, req.file.path contient déjà l'URL complète et permanente
+  const url = req.file.path;
   res.status(201).json({ success: true, data: { url } });
 };
 
